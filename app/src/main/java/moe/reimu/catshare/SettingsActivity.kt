@@ -82,6 +82,14 @@ fun SettingsActivityContent() {
         mutableStateOf(settings.autoAccept)
     }
 
+    var receiveOnBootValue by remember {
+        mutableStateOf(settings.receiveOnBoot)
+    }
+
+    var shareSheetSlotValue by remember {
+        mutableStateOf(settings.shareSheetSlot)
+    }
+
     Scaffold(topBar = {
         TopAppBar(
             title = { Text(text = stringResource(R.string.title_activity_settings)) },
@@ -105,6 +113,11 @@ fun SettingsActivityContent() {
                     settings.manualMacAddress = normalizedManualMac ?: ""
                     settings.verbose = verboseValue
                     settings.autoAccept = autoAcceptValue
+                    settings.receiveOnBoot = receiveOnBootValue
+                    if (settings.shareSheetSlot != shareSheetSlotValue) {
+                        settings.shareSheetSlot = shareSheetSlotValue
+                        SystemIntegration.applyShareSheetSlot(context, shareSheetSlotValue)
+                    }
 
                     activity?.finish()
                 }) {
@@ -185,6 +198,40 @@ fun SettingsActivityContent() {
                         Spacer(modifier = Modifier.weight(1.0f))
                         Switch(checked = autoAcceptValue, onCheckedChange = {
                             autoAcceptValue = it
+                        })
+                    }
+                }
+            }
+            item {
+                DefaultCard {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.receive_on_boot_name),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Spacer(modifier = Modifier.weight(1.0f))
+                        Switch(checked = receiveOnBootValue, onCheckedChange = {
+                            receiveOnBootValue = it
+                        })
+                    }
+                }
+            }
+            item {
+                DefaultCard {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.share_sheet_slot_name),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Spacer(modifier = Modifier.weight(1.0f))
+                        Switch(checked = shareSheetSlotValue, onCheckedChange = {
+                            shareSheetSlotValue = it
                         })
                     }
                 }

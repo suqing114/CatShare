@@ -29,6 +29,18 @@ class AppSettings(private val context: Context) {
             prefs.edit { putBoolean("verbose", value) }
         }
 
+    var receiveOnBoot: Boolean
+        get() = prefs.getBoolean("receiveOnBoot", true)
+        set(value) {
+            prefs.edit { putBoolean("receiveOnBoot", value) }
+        }
+
+    var shareSheetSlot: Boolean
+        get() = prefs.getBoolean("shareSheetSlot", true)
+        set(value) {
+            prefs.edit { putBoolean("shareSheetSlot", value) }
+        }
+
     var autoAccept: Boolean
         get() = prefs.getBoolean("autoAccept", false)
         set(value) {
