@@ -1,10 +1,13 @@
 package moe.reimu.catshare.utils
 
+import android.annotation.SuppressLint
 import android.content.ComponentName
 import android.content.Context
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
+import android.net.wifi.p2p.WifiP2pManager
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 import kotlinx.coroutines.CompletableDeferred
 import moe.reimu.catshare.AppSettings
@@ -16,6 +19,7 @@ import java.net.NetworkInterface
 import kotlin.collections.iterator
 
 object ShizukuUtils {
+    private const val ANONYMIZED_MAC = "02:00:00:00:00:00"
     private val binderLock = Object()
     private val serviceNotify = Object()
     private var macService: IMacAddressService? = null
@@ -101,7 +105,26 @@ object ShizukuUtils {
 
         if (context.checkSelfPermission("android.permission.LOCAL_MAC_ADDRESS") == PackageManager.PERMISSION_GRANTED) {
             Log.d(TAG, "Permission granted, using native method")
-            l(nativeGetMacAddressByName(name))
+            val nativeMac = try {
+                nativeGetMacAddressByName(name)
+            } catch (e: Throwable) {
+                Log.w(TAG, "Native MAC lookup for $name failed", e)
+                null
+            }
+            if (nativeMac != null && nativeMac != ANONYMIZED_MAC) {
+                l(nativeMac)
+                return
+            }
+            // SELinux forbids every priv_app from reading link addresses over netlink
+            // (priv_app_all: neverallow nlmsg_readpriv), so NetworkInterface returns null
+            // even with LOCAL_MAC_ADDRESS. The Wi-Fi framework, however, reports the real
+            // P2P device address to callers holding LOCAL_MAC_ADDRESS.
+            if (name == "p2p0") {
+                Log.d(TAG, "Native lookup unavailable, asking WifiP2pManager")
+                requestP2pDeviceAddress(context, l)
+                return
+            }
+            l(nativeMac)
             return
         }
 
@@ -116,6 +139,32 @@ object ShizukuUtils {
             l(res)
         }
         th.start()
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun requestP2pDeviceAddress(context: Context, l: (String?) -> Unit) {
+        val manager = context.getSystemService(WifiP2pManager::class.java)
+        if (manager == null) {
+            l(null)
+            return
+        }
+        val channel = manager.initialize(context.applicationContext, Looper.getMainLooper(), null)
+        if (channel == null) {
+            l(null)
+            return
+        }
+        try {
+            manager.requestDeviceInfo(channel) { device ->
+                val addr = device?.deviceAddress?.takeIf { it.isNotEmpty() && it != ANONYMIZED_MAC }
+                Log.d(TAG, "WifiP2pManager device address: ${addr ?: "unavailable"}")
+                channel.close()
+                l(addr)
+            }
+        } catch (e: Throwable) {
+            Log.e(TAG, "requestDeviceInfo failed", e)
+            channel.close()
+            l(null)
+        }
     }
 
     @OptIn(ExperimentalStdlibApi::class)
